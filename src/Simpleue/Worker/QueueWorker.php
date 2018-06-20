@@ -17,8 +17,10 @@ class QueueWorker
     protected $maxIterations;
     protected $logger;
     protected $terminated;
+    protected $maxRunTime;
+    protected $startTime;
 
-    public function __construct(Queue $queueHandler, Job $jobHandler, $maxIterations = 0, $handleSignals = false)
+    public function __construct(Queue $queueHandler, Job $jobHandler, $maxIterations = 0, $maxRunTime=0, $handleSignals = false)
     {
         $this->queueHandler = $queueHandler;
         $this->jobHandler = $jobHandler;
@@ -26,6 +28,7 @@ class QueueWorker
         $this->iterations = 0;
         $this->logger = false;
         $this->terminated = false;
+        $this->maxRunTime = $maxRunTime;
 
         if ($handleSignals) {
             $this->handleSignals();
@@ -64,6 +67,8 @@ class QueueWorker
     {
         $this->log('debug', 'Starting Queue Worker!');
         $this->iterations = 0;
+        $this->startTime = time();
+
         $this->starting();
         while ($this->isRunning()) {
             ++$this->iterations;
@@ -103,14 +108,26 @@ class QueueWorker
 
     protected function isRunning()
     {
+        /**
+         * 信号终止
+         */
         if ($this->terminated) {
             return false;
         }
 
-        if ($this->maxIterations > 0) {
-            return $this->iterations < $this->maxIterations;
+        /**
+         * 最多运行次数
+         */
+        if ($this->maxIterations && $this->iterations >= $this->maxIterations) {
+            return false;
         }
 
+        /**
+         * 最大运行时长
+         */
+        if ($this->maxRunTime && time() - $this->startTime > $this->maxRunTime){
+            return false;
+        }
         return true;
     }
 
